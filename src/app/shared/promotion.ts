@@ -1,5 +1,5 @@
 export class Promotion {
-    id: string | undefined;
+    id!: string;
     name!: string;
     image!: string;
     label!: string;
