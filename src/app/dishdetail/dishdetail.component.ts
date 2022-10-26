@@ -6,58 +6,73 @@ import { DishService } from '../services/dish.service';
 import { Params, ActivatedRoute } from '@angular/router';
 import { Location } from '@angular/common';
 import { switchMap } from 'rxjs/operators';
+import { trigger, state, style, animate, transition } from '@angular/animations';
 
 @Component({
   selector: 'app-dishdetail',
   templateUrl: './dishdetail.component.html',
-  styleUrls: ['./dishdetail.component.scss']
+  styleUrls: ['./dishdetail.component.scss'],
+  animations: [
+    trigger('visibility', [
+        state('shown', style({
+            transform: 'scale(1.0)',
+            opacity: 1
+        })),
+        state('hidden', style({
+            transform: 'scale(0.5)',
+            opacity: 0
+        })),
+        transition('* => *', animate('0.5s ease-in-out'))
+    ])
+  ]
 })
 export class DishdetailComponent implements OnInit {
 
   @ViewChild('fform') commentFormDirective: any;
-  dish!: Dish;
+  dish!: Dish | any;
   dishIds!: string[];
   prev!: string;
   next!: string;
   comment!: Comment;
   commentForm!: FormGroup;
+  errMess!: string | any;
+  dishcopy!: Dish | any;
+  visibility = 'shown';
 
   formErrors: any = {
     'author': '',
-    'rating': 5,
     'comment': ''
   };
 
   validationMessages: any = {
     'author': {
-      'required': 'Name is required.',
-      'minlength': 'Name must be at least 2 characters long.',
-
-    },
-    'rating': {
-      'required': 'rating is required.',
+      'required': 'Author name is required.',
+      'minlength': 'Author name must be at least 2 characters long.',
     },
     'comment': {
       'required': 'Comment is required.'
     }
   };
 
-  private readonly newProperty = this;
 
-  constructor(private dishservice: DishService,
+  constructor(private dishService: DishService,
     private location: Location,
     private route: ActivatedRoute,
     private fb: FormBuilder,
     @Inject('BaseURL') public BaseURL: any) {
-    this.createForm();
   }
 
   ngOnInit(): void {
-    this.dishservice.getDishIds().
-      subscribe(dishIds => this.dishIds = dishIds);
-    this.route.params.pipe(switchMap((params: Params) => this.dishservice.getDish(params['id'])))
-      .subscribe(dish => { this.dish = dish; this.setPrevNext(dish.id); });
+    this.createForm();
+    this.dishService.getDishIds()
+      .subscribe((dishIds) =>
+        this.dishIds = dishIds);
+    this.route.params.pipe(switchMap((params: Params) => {this.visibility = 'hidden'; return this.dishService.getDish(+params['id']);}))
+      .subscribe(dish => { this.dish = dish; this.dishcopy = dish; this.setPrevNext(dish.id);  this.visibility = 'shown';},
+        errmess => this.errMess = <any>errmess);
+
   }
+
   setPrevNext(dishId: string) {
     const index = this.dishIds.indexOf(dishId);
     this.prev = this.dishIds[(this.dishIds.length + index - 1) % this.dishIds.length];
@@ -69,13 +84,34 @@ export class DishdetailComponent implements OnInit {
   createForm(): void {
     this.commentForm = this.fb.group({
       author: ['', [Validators.required, Validators.minLength(2)]],
-      rating: [5, Validators.required],
+      rating: 5,
       comment: ['', Validators.required],
     });
+
     this.commentForm.valueChanges
       .subscribe((data: any) => this.onValueChanged(data));
     this.onValueChanged();
+
   }
+
+  onSubmit() {
+    this.comment = this.commentForm.value;
+    this.comment.date = new Date().toISOString();
+    console.log(this.comment);
+    this.dishcopy.comments.push(this.comment);
+    this.dishService.putDish(this.dishcopy)
+      .subscribe(dish => {
+        this.dish = dish; this.dishcopy = dish;
+      },
+        errmess => { this.dish = null; this.dishcopy = null; this.errMess = <any>errmess; });
+    this.commentForm.reset({
+      author: '',
+      rating: 5,
+      comment: '',
+    });
+    this.commentFormDirective.resetForm();
+  }
+
   onValueChanged(data?: any) {
     if (!this.commentForm) { return; }
     const form = this.commentForm;
@@ -94,19 +130,5 @@ export class DishdetailComponent implements OnInit {
         }
       }
     }
-  }
-  onSubmit() {
-    this.comment = this.commentForm.value;
-    this.comment.date = new Date().toString();
-    this.dish.comments.push(this.comment);
-    this.commentForm.reset({
-      author: '',
-      rating: 5,
-      comment: '',
-      date: ''
-    });
-    this.commentFormDirective.resetForm({
-      rating: 5,
-    });
   }
 }
