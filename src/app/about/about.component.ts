@@ -10,24 +10,24 @@ import { expand, flyInOut } from '../animations/app.animation';
   host: {
     '[@flyInOut]': 'true',
     'style': 'display: block;'
-    },
-    animations: [
-      flyInOut(),
-      expand()
-    ]
+  },
+  animations: [
+    flyInOut(),
+    expand()
+  ]
 })
 export class AboutComponent implements OnInit {
 
   leaders!: Leader[];
+  errMess!: string;
 
   constructor(private leaderservice: LeaderService,
     @Inject('BaseURL') public BaseURL: any) { }
-   
+
   ngOnInit(): void {
     this.leaderservice.getLeaders()
-    .subscribe(
-      leader => this.leaders = leader
-    );
-    console.log(this.leaders);
+      .subscribe(
+        leader => this.leaders = leader,
+        errmess => this.errMess = <any>errmess);
   }
 }
